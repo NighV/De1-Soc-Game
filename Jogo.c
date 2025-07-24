@@ -140,15 +140,42 @@ void processaFisicaEntidade(Entidade* entidade){
 
 typedef struct Mapa{
     // Lista de entidades;
-    Entidade entidades[10];
+    Entidade** entidades;
+    int quantidadeEntidades;
     Entidade player;
 } Mapa;
 
-void desenharEntidades(Entidade* entidades, int quantidadeEntidades){
+void desenharEntidades(Entidade** entidades, int quantidadeEntidades){
     for(int i=0;i<quantidadeEntidades;i++){
-        desenharEntidade(&entidades[i]);
+        if(entidades[i] == NULL) continue; 
+        desenharEntidade(entidades[i]);
     }
 }
+
+void criarEntidade(Mapa* mundo){
+    int indiceLivre = -1;
+    for(int i=0; i < mundo->quantidadeEntidades; i++){
+        if(mundo->entidades[i] == NULL){
+            indiceLivre = i;
+            break;
+        }
+    }
+    if(indiceLivre == -1) return; 
+
+    Entidade* novaEntidade = (Entidade*) malloc(sizeof(Entidade));
+    mundo->entidades[indiceLivre] = novaEntidade;
+    novaEntidade->posicaoX = rand() % TAMANHO_MUNDO_X;
+    novaEntidade->posicaoY = rand() % TAMANHO_MUNDO_Y;
+    novaEntidade->sprite = SpritePlayer1;
+    novaEntidade->tamanhoSpriteX = 12;
+    novaEntidade->tamanhoSpriteY = 16;
+}
+
+void removerEntidade(Mapa* mundo, int indice){
+    if(mundo->entidades[indice] == NULL) return;
+    free(mundo->entidades[indice]);
+    mundo->entidades[indice] = NULL;
+}   
 
 // Objetivo atual: Adicionar mais entidades no mundo
 // Ter quantidade dinamica de entidades na tela (1, 5, 0)
@@ -160,15 +187,17 @@ int main(){
     mundo.player.posicaoX = 160;
     mundo.player.posicaoY = 120;
     mundo.player.sprite = (uint16_t*)SpritePlayer1;
-    mundo.player.tamanhoSpriteX = 16;
-    mundo.player.tamanhoSpriteY = 12;
+    mundo.player.tamanhoSpriteX = 12;
+    mundo.player.tamanhoSpriteY = 16;
 
     // Inicializa entidades
+    mundo.quantidadeEntidades = 10;
+    mundo.entidades = (Entidade**) malloc(mundo.quantidadeEntidades * sizeof(Entidade*));
     for(int i=0;i<10;i++){
-        mundo.entidades[i].sprite = NULL;
-        mundo.entidades[i].posicaoX = rand() % TAMANHO_MUNDO_X;
-        mundo.entidades[i].posicaoY = rand() % TAMANHO_MUNDO_Y;
+        mundo.entidades[i] = NULL;
     }
+
+    criarEntidade(&mundo);
     
     while(1){
         fundo(WHITE);
