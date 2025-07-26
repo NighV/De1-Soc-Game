@@ -311,6 +311,25 @@
         0xF8FF, 0xF8FF, 0xF8FF, 0xF8FF, 0xF8FF, 0xF8FF, 0xF8FF, 0xF8FF, 0xF8FF, 0xF8FF, 0xF8FF, 0xF8FF,
         0xF8FF, 0xF8FF, 0xF8FF, 0xF8FF, 0xF8FF, 0xF8FF, 0xF8FF, 0xF8FF, 0xF8FF, 0xF8FF, 0xF8FF, 0xF8FF
     };
+
+        uint16_t SpritePlayer2[16 * 12]= {
+        0xF8FF, 0xF8FF, 0xF8FF, 0xF8FF, YELLOW, YELLOW, YELLOW, YELLOW, 0xF8FF, 0xF8FF, 0xF8FF, 0xF8FF,
+        0xF8FF, 0xF8FF, 0xF8FF, YELLOW, YELLOW, YELLOW, YELLOW, YELLOW, YELLOW, 0xF8FF, 0xF8FF, 0xF8FF,
+        0xF8FF, 0xF8FF, YELLOW, YELLOW, 0x0000, YELLOW, YELLOW, 0x0000, YELLOW, YELLOW, 0xF8FF, 0xF8FF,
+        0xF8FF, YELLOW, YELLOW, YELLOW, YELLOW, YELLOW, YELLOW, YELLOW, YELLOW, YELLOW, YELLOW, 0xF8FF,
+        0xF8FF, YELLOW, YELLOW, YELLOW, YELLOW, YELLOW, YELLOW, YELLOW, YELLOW, YELLOW, YELLOW, 0xF8FF,
+        0xF8FF, YELLOW, YELLOW, YELLOW, YELLOW, YELLOW, YELLOW, YELLOW, YELLOW, YELLOW, YELLOW, 0xF8FF,
+        0xF8FF, 0xF8FF, YELLOW, YELLOW, YELLOW, YELLOW, YELLOW, YELLOW, YELLOW, YELLOW, 0xF8FF, 0xF8FF,
+        0xF8FF, 0xF8FF, 0xF8FF, YELLOW, YELLOW, YELLOW, YELLOW, YELLOW, YELLOW, 0xF8FF, 0xF8FF, 0xF8FF,
+        0xF8FF, 0xF8FF, 0xF8FF, 0xF8FF, YELLOW, YELLOW, YELLOW, YELLOW, 0xF8FF, 0xF8FF, 0xF8FF, 0xF8FF,
+        0xF8FF, 0xF8FF, 0xF8FF, YELLOW, YELLOW, 0xF8FF, 0xF8FF, YELLOW, YELLOW, 0xF8FF, 0xF8FF, 0xF8FF,
+        0xF8FF, 0xF8FF, YELLOW, YELLOW, 0xF8FF, 0xF8FF, 0xF8FF, 0xF8FF, YELLOW, YELLOW, 0xF8FF, 0xF8FF,
+        0xF8FF, YELLOW, YELLOW, 0xF8FF, 0xF8FF, 0xF8FF, 0xF8FF, 0xF8FF, 0xF8FF, YELLOW, YELLOW, 0xF8FF,
+        0xF8FF, 0xF8FF, 0xF8FF, 0xF8FF, 0xF8FF, 0xF8FF, 0xF8FF, 0xF8FF, 0xF8FF, 0xF8FF, 0xF8FF, 0xF8FF,
+        0xF8FF, 0xF8FF, 0xF8FF, 0xF8FF, 0xF8FF, 0xF8FF, 0xF8FF, 0xF8FF, 0xF8FF, 0xF8FF, 0xF8FF, 0xF8FF,
+        0xF8FF, 0xF8FF, 0xF8FF, 0xF8FF, 0xF8FF, 0xF8FF, 0xF8FF, 0xF8FF, 0xF8FF, 0xF8FF, 0xF8FF, 0xF8FF,
+        0xF8FF, 0xF8FF, 0xF8FF, 0xF8FF, 0xF8FF, 0xF8FF, 0xF8FF, 0xF8FF, 0xF8FF, 0xF8FF, 0xF8FF, 0xF8FF
+    };
     uint16_t TartarugaVerde2Sprite[20 * 10] = {
         0xF8FF, 0xF8FF, 0xF8FF, 0xF8FF, 0xF8FF, 0xF8FF, 0xF8FF, 0xF8FF, 0xF8FF, 0xF8FF, 0xF8FF, 0xF8FF, 0xF8FF, 0xF8FF, 0xF8FF, 0xF8FF, 0xF8FF, 0xF8FF, 0xF8FF, 0xF8FF,
         0xF8FF, 0xF8FF, 0xF8FF, 0xF8FF, 0xF8FF, 0xF8FF, 0xF8FF, 0xF8FF, 0xF8FF, 0xF8FF, 0xF8FF, 0xF8FF, 0xF8FF, 0xF8FF, 0xF8FF, 0xF8FF, 0xF8FF, 0xF8FF, 0xF8FF, 0xF8FF,
@@ -495,6 +514,7 @@
         Entidade** entidades;
         int quantidadeEntidades;
         Entidade player;
+        Entidade player2;
         int pontuacao1;
         int pontuacao2;
 
@@ -606,6 +626,24 @@
         }
     }
 
+    // Gerado pelo chat gpt
+    void atualizaIAPlayer2(Entidade *p){
+    /* 1. Sempre subir */
+    p->velY = -7;
+
+    /* 2. Pequena deriva horizontal pseudo-aleatória */
+    if((rand() & 0x1F) == 0){          // ~1 vez a cada 32 quadros
+        int dir = (rand()%3) - 1;      // -1, 0 ou +1
+        p->velX = dir * 10;
+    }
+
+    /* 3. Se encostar na lateral, inverte horizontalmente */
+    if(p->posicaoX < 0 || p->posicaoX + p->tamanhoSpriteX > TAMANHO_MUNDO_X){
+        p->velX = -p->velX;
+    }
+}
+
+
 
     // Adicionar outras entidades, tubarões e tartarugas com cores diferentes
     // Adicionar o player 2 que anda sozinho sempre
@@ -615,13 +653,20 @@
         srand(time(NULL));
 
         Mapa mundo;
-        mundo.player.posicaoX = 160;
-        mundo.player.posicaoY = 230;
+        mundo.player.posicaoX = 110;
+        mundo.player.posicaoY = 225;
         mundo.player.sprite = (uint16_t*)SpritePlayer1;
         mundo.player.tamanhoSpriteX = 12;
         mundo.player.tamanhoSpriteY = 16;
         mundo.pontuacao1 = 0;
+
+        mundo.player2.posicaoX = 220;
+        mundo.player2.posicaoY = 225;
+        mundo.player2.sprite = (uint16_t*)SpritePlayer2;
+        mundo.player2.tamanhoSpriteX = 12;
+        mundo.player2.tamanhoSpriteY = 16;
         mundo.pontuacao2 = 0;
+
 
         inicializarEntidades(&mundo);
 
@@ -629,15 +674,22 @@
         while(1){
             fundo();
             processPlayerInput(&mundo.player);
+            atualizaIAPlayer2(&mundo.player2);
+
             processaFisicaEntidade(&mundo.player);
+            processaFisicaEntidade(&mundo.player2);
+
             processaFisicaPlayer(&mundo);
+
             processaFisicaMundo(&mundo);
+
             // // Desenhos
             desenharEntidades(mundo.entidades, 10);
             desenharEntidade(&mundo.player);
+            desenharEntidade(&mundo.player2);
             
-            mostra_display(mundo.pontuacao1, 1);  
-            mostra_display(mundo.pontuacao2, 2);  
+            mostra_display(mundo.pontuacao1, 2);  
+            mostra_display(mundo.pontuacao2, 1);  
 
             escreveTela();
         }
