@@ -3,41 +3,15 @@
 #include <time.h>
 #include <stdint.h>
 
-// Alterações para rodar na plaquinha
-#include <fcntl.h>           // open()
-#include <sys/mman.h>        // mmap()
-#include <signal.h>          // Ctrl-C opcional
+#define IO_JTAG_UART (*(volatile unsigned int *)0xFF201000)
+#define VGA_BASE 0xc8000000
+uint16_t *ppix = (uint16_t *)(VGA_BASE);
 
-//#define IO_JTAG_UART (*(volatile unsigned int *)0xFF201000)
-//#define VGA_BASE 0xc8000000
-//uint16_t *ppix = (uint16_t *)(VGA_BASE);
+#define BOTOES_BASE 0xFF200050
+uint8_t *pointer_botoes = (uint8_t *)(BOTOES_BASE);
 
-//#define BOTOES_BASE 0xFF200050
-//uint8_t *pointer_botoes = (uint8_t *)(BOTOES_BASE);
-
-//#define HEX_BASE ((volatile uint32_t *) 0xFF200020)
-//#define HEX_BASE_2 ((volatile uint32_t *) 0xFF200030)
-
-// 
-#define LW_BRIDGE_PHYS  0xFF200000   // início do Low-Latency Bridge
-#define JTAG_OFF        0x1000       // offsets dentro do bridge
-#define BOTOES_OFF      0x0050
-#define HEX0_1_OFF      0x0020
-#define HEX4_5_OFF      0x0030
-
-#define FB_PHYS         0xC8000000   // frame-buffer físico
-#define FB_SIZE         0x04000000   // 64 MiB
-#define FB_LWIDTH       512          // largura real da linha
-#define FB_HEIGHT       240
-
-/*****  depois do nmap()  *****/
-static uint16_t (*screen)[FB_LWIDTH];     // frame-buffer
-static volatile uint32_t *jtag_uart;      // JTAG UART
-static volatile uint8_t  *buttons;
-static volatile uint32_t *hex0_1;
-static volatile uint32_t *hex4_5;
-static int fd_mem;                        // /dev/mem
-
+#define HEX_BASE ((volatile uint32_t *) 0xFF200020)
+#define HEX_BASE_2 ((volatile uint32_t *) 0xFF200030)
 
 #define BLUE 0x001F
 #define RED 0xF800
@@ -418,50 +392,32 @@ void mostra_display(int numero, int posicao) {
     if (posicao == 1) {
         // Display 0: unidade (bits 0-7), Display 1: dezena (bits 8-15)
         valor = (dec_to_7seg[dezena] << 8) | dec_to_7seg[unidade];
-        // Para cpulator
-        // *HEX_BASE = (*HEX_BASE & 0xFFFF0000) | valor;
-
-        // para plaquinha
-        *hex0_1    = (*hex0_1 & 0xFFFF0000) | valor;
-
+        *HEX_BASE = (*HEX_BASE & 0xFFFF0000) | valor;
     } else if (posicao == 2) {
-        // Display 2: unidade (bits 0-7), Display 1: dezena (bits 8-15)
+        // Display 0: unidade (bits 0-7), Display 1: dezena (bits 8-15)
         valor = (dec_to_7seg[dezena] << 8) | dec_to_7seg[unidade];
-        // *HEX_BASE_2 = (*HEX_BASE_2 & 0xFFFF0000) | valor;
-        *hex4_5    = (*hex4_5 & 0xFFFF0000) | valor;
+        *HEX_BASE_2 = (*HEX_BASE_2 & 0xFFFF0000) | valor;
     }
-    // *HEX_BASE = (*HEX_BASE & 0x0000FFFF) | (0x00000040 << 16) | (0x00000040 << 24); // Acende só o traço do meio no display HEX2
-    *hex0_1 = (*hex0_1 & 0x0000FFFF) | (0x00000040 << 16) | (0x00000040 << 24); // Acende só o traço do meio no display HEX2
+    *HEX_BASE = (*HEX_BASE & 0x0000FFFF) | (0x00000040 << 16) | (0x00000040 << 24); // Acende só o traço do meio no display HEX2
 }
 
 uint16_t TELA[TAMANHO_MUNDO_X * TAMANHO_MUNDO_Y];
 
 int botaoApertado(int num_botao) {
-    // cpulator 
-    // return *pointer_botoes & num_botao;
-    // plaquinha
-    /*****  DEPOIS  *****/
-    return *buttons & num_botao;
-
+    return *pointer_botoes & num_botao;
 }
 
 void escreveTela(){
     for(int i=0; i < TAMANHO_MUNDO_X; i++){
         for(int j=0; j < TAMANHO_MUNDO_Y; j++){
-            // cpulator
-            //ppix[i + (j*512)] = TELA[i + (j*TAMANHO_MUNDO_X)];
-            // plaquinha
-            screen[j][i] = TELA[i + j*TAMANHO_MUNDO_X];
+            ppix[i + (j*512)] = TELA[i + (j*TAMANHO_MUNDO_X)];
         }
     }
 }
 
 void delay() {
-    // cpulator
-    //volatile int count = 0;
-    //for (count = 0; count < 1000000; count++) {}
-    usleep(5*1000);            // 5 ms; ajuste conforme necessário
-
+    volatile int count = 0;
+    for (count = 0; count < 1000000; count++) {}
 }
 
 void setPix(int lin, int col, uint16_t cor){
@@ -708,26 +664,6 @@ if(p->posicaoX < 0 || p->posicaoX + p->tamanhoSpriteX > TAMANHO_MUNDO_X){
 int main(){
     srand(time(NULL));
 
-    /*****  INICIALIZAÇÃO DE HARDWARE *****/
-    fd_mem = open("/dev/mem", O_RDWR | O_SYNC);
-    if (fd_mem < 0) { perror("open"); exit(1); }
-
-    /* 4a – VGA */
-    void *fb_base = mmap(NULL, FB_SIZE, PROT_READ|PROT_WRITE,
-                        MAP_SHARED, fd_mem, FB_PHYS);
-    if (fb_base == MAP_FAILED) { perror("mmap fb"); exit(1); }
-    screen = (uint16_t (*)[FB_LWIDTH]) fb_base;
-
-    /* 4b – periféricos do LW-Bridge (2 KiB é suficiente) */
-    void *lw_base = mmap(NULL, 0x2000, PROT_READ|PROT_WRITE,
-                        MAP_SHARED, fd_mem, LW_BRIDGE_PHYS);
-    if (lw_base == MAP_FAILED) { perror("mmap lw"); exit(1); }
-
-    jtag_uart = (uint32_t *)((char*)lw_base + JTAG_OFF);
-    buttons   = (uint8_t  *)((char*)lw_base + BOTOES_OFF);
-    hex0_1    = (uint32_t *)((char*)lw_base + HEX0_1_OFF);
-    hex4_5    = (uint32_t *)((char*)lw_base + HEX4_5_OFF);
-
     Mapa mundo;
     mundo.player.posicaoX = 110;
     mundo.player.posicaoY = 225;
@@ -770,9 +706,6 @@ int main(){
 
         escreveTela();
     }
-    /* control c; */
-    munmap(lw_base, 0x2000);
-    munmap(fb_base, FB_SIZE);
-    close(fd_mem);
+
     return 0;
 }
